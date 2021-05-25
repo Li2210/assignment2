@@ -65,9 +65,7 @@ other_user = clearData.filter("user_id !=" + selectId).rdd.map(lambda row : (row
 def cosine(a,b):
     return a.dot(b) / (a.norm(2) * b.norm(2))
 
-found_user = other_user.map(lambda row:(row[0], cosine(target_user, row[1])))
-print("Top five users with similar interest based on TF-IDF:")
-print(found_user.sortBy(lambda row:row[1], ascending=False).take(5))
+found_user = other_user.map(lambda row:(row[0], cosine(target_user, row[1]))).cache()
 
 
 # Word2Vec
@@ -82,11 +80,7 @@ result = model.transform(word_data).drop("words")
 
 target_user_1 = result.filter("user_id =" + selectId).collect()[0][1]
 other_user_1 = result.filter("user_id !=" + selectId).rdd.map(lambda row : (row[0], row[1]))
-found_user_1 = other_user_1.map(lambda row:(row[0], cosine(target_user_1, row[1])))
-
-print("Top five users with similar interest based on Word2Vec:")
-print(found_user_1.sortBy(lambda row:row[1], ascending=False).take(5))
-
+found_user_1 = other_user_1.map(lambda row:(row[0], cosine(target_user_1, row[1]))).cache()
 
 # get user_id 
 user_ids = original_data.select("user_id").rdd.map(lambda row:row[0]).distinct().collect()
@@ -145,9 +139,11 @@ als = ALS(userCol="user_id", itemCol="mention_user_id", ratingCol="counter",cold
 model = als.fit(train_data)
 model_recommend = model.recommendForAllUsers(5).collect()
 
-# converter = IndexToString(inputCol="user_id_Index", outputCol="raw_user_id_Index")
-# converted = converter.transform(model_recommend)
-# converted.show()
+print("Top five users with similar interest based on TF-IDF:")
+print(found_user.sortBy(lambda row:row[1], ascending=False).take(5))
+
+print("Top five users with similar interest based on Word2Vec:")
+print(found_user_1.sortBy(lambda row:row[1], ascending=False).take(5))
 
 print("user recomendation is:")
 for rows in model_recommend:
