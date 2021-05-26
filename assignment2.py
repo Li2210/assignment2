@@ -105,8 +105,8 @@ mention_user_id_mapper = dict()
 for mention_user_id in mention_user_ids:
     mention_user_id_mapper[mention_user_id] = len(mention_user_id_mapper)
 
-# sc.broadcast(user_id_mapper)
-# sc.broadcast(mention_user_id_mapper)
+sc.broadcast(user_id_mapper)
+sc.broadcast(mention_user_id_mapper)
 
 def extract_data(rows):
     user_id = rows[0]
