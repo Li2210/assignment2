@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[5]:
+# In[1]:
 
 
 from pyspark.context import SparkContext
@@ -65,7 +65,9 @@ other_user = clearData.filter("user_id !=" + selectId).rdd.map(lambda row : (row
 def cosine(a,b):
     return a.dot(b) / (a.norm(2) * b.norm(2))
 
-found_user = other_user.map(lambda row:(row[0], cosine(target_user, row[1]))).cache()
+found_user = other_user.map(lambda row:(row[0], cosine(target_user, row[1])))
+idf_result = found_user.sortBy(lambda row:row[1], ascending=False).take(5)
+
 
 
 # Word2Vec
@@ -80,7 +82,9 @@ result = model.transform(word_data).drop("words")
 
 target_user_1 = result.filter("user_id =" + selectId).collect()[0][1]
 other_user_1 = result.filter("user_id !=" + selectId).rdd.map(lambda row : (row[0], row[1]))
-found_user_1 = other_user_1.map(lambda row:(row[0], cosine(target_user_1, row[1]))).cache()
+found_user_1 = other_user_1.map(lambda row:(row[0], cosine(target_user_1, row[1])))
+word_result = found_user_1.sortBy(lambda row:row[1], ascending=False).take(5)
+
 
 # get user_id 
 user_ids = original_data.select("user_id").rdd.map(lambda row:row[0]).distinct().collect()
@@ -123,16 +127,6 @@ key_data = clear_data.map(create_key)
 clear_key = key_data.reduceByKey(lambda a,b : a + b).map(lambda row : (row[0][0], row[0][1], row[1]))
 train_data = clear_key.toDF(["user_id", "mention_user_id", "counter"])
 
-
-# indexer_1 = StringIndexer(inputCol="user_id", outputCol="user_id_Index")
-# indexed_1 = indexer_1.fit(train_data).transform(train_data)
-
-# indexer_2 = StringIndexer(inputCol="mention_user_id", outputCol="mention_user_id_Index")
-# indexed_2 = indexer_2.fit(indexed_1).transform(indexed_1)
-
-# a_b = indexed_2.drop("user_id").drop("mention_user_id")
-# re_format = a_b[["user_id_Index","mention_user_id_Index","counter"]]
-
 # https://spark.apache.org/docs/latest/ml-collaborative-filtering.html
 # train data
 als = ALS(userCol="user_id", itemCol="mention_user_id", ratingCol="counter",coldStartStrategy="drop")
@@ -140,24 +134,23 @@ model = als.fit(train_data)
 model_recommend = model.recommendForAllUsers(5).collect()
 
 print("Top five users with similar interest based on TF-IDF:")
-print(found_user.sortBy(lambda row:row[1], ascending=False).take(5))
+print(idf_result)
 
 print("Top five users with similar interest based on Word2Vec:")
-print(found_user_1.sortBy(lambda row:row[1], ascending=False).take(5))
+print(word_result)
 
-print("user recomendation is:")
+print("User recomendation is:")
+counter = 0
+
 for rows in model_recommend:
-    print(user_ids[rows[0]], ":", end=" ")
-    for data in rows[1]:
-        print(mention_user_ids[data[0]], end="   ")
-    print()
+    if(counter < 20):
+        print(user_ids[rows[0]], ":", end=" ")
+        for data in rows[1]:
+            print(mention_user_ids[data[0]], end="   ")
+        print()
+        counter += 1
 
 sc.stop()
-# for rows in model_recommend:
-#     if user_ids[rows[0]] == 1242709697397952512:
-#         print(user_ids[rows[0]], ":", end=" ")
-#         for data in rows[1]:
-#             print(mention_user_ids[data[0]], end="   ")
 
 
 # In[ ]:
